@@ -31,7 +31,7 @@ BUFFER_RAW = 100
 TIMEOUT_SEC = 900
 FILENAME_PREFIX = "scp_log_and_metrics_"
 
-S3_PREFIX = "/data/"
+S3_PREFIX = "/goLog/"
 )
 
 
