@@ -40,7 +40,7 @@ func main() {
 
 
 vcap_services := os.Getenv("VCAP_SERVICES")
-	if vcap == "" {
+	if vcap_services == "" {
 		fmt.Printf("No VCAP_SERVICES")
 		os.Exit(1)
 	}
@@ -48,12 +48,12 @@ vcap_services := os.Getenv("VCAP_SERVICES")
 
 //TODO ERROR MNGMTN
 
-OBJECTSTORE =  gjson.Get(vcap_services, "objectstore.0.name").String()
-INSTANCE_NAME =  gjson.Get(vcap_services, "objectstore.0.instance_name").String()
-s3_region =  gjson.Get(vcap_services, "objectstore.0.credentials.region").String()
-s3_bucket =  gjson.Get(vcap_services, "objectstore.0.credentials.bucket").String()
-aws_access_key_id =  gjson.Get(vcap_services, "objectstore.0.credentials.access_key_id").String()
-aws_secret_access_key = gjson.Get(vcap_services, "objectstore.0.credentials.secret_access_key").String()
+OBJECTSTORE :=  gjson.Get(vcap_services, "objectstore.0.name").String()
+INSTANCE_NAME :=  gjson.Get(vcap_services, "objectstore.0.instance_name").String()
+s3_region :=  gjson.Get(vcap_services, "objectstore.0.credentials.region").String()
+s3_bucket :=  gjson.Get(vcap_services, "objectstore.0.credentials.bucket").String()
+aws_access_key_id :=  gjson.Get(vcap_services, "objectstore.0.credentials.access_key_id").String()
+aws_secret_access_key := gjson.Get(vcap_services, "objectstore.0.credentials.secret_access_key").String()
 
 fmt.Println("OBJECTSTORE :", OBJECTSTORE)
 fmt.Println("INSTANCE_NAME :", INSTANCE_NAME)
@@ -70,7 +70,7 @@ handler:= NewSyslog()
 go buildBatch(handler.messages, channel_filename)
 fmt.Println("main -> buildBatch step")
 
-go uploadS3(channel_filename)
+go uploadS3(channel_filename, s3_bucket, aws_access_key_id, aws_secret_access_key, s3_region)
 
 http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), handler)
 //http.ListenAndServe(":9000", handler)
@@ -247,7 +247,7 @@ channel_filename <- filename
 
 // FUNCTION -----------------------------------
 
-func uploadS3(channel_filename chan string) {
+func uploadS3(channel_filename chan string, s3_bucket string, aws_access_key_id string, aws_secret_access_key string, s3_region string) {
 for
   {
 
@@ -258,14 +258,14 @@ filefullname := WORKING_PATH + filename
 fmt.Println("uploadS3 - START")
 // WRITE TO S3
 
-	client := getS3Client()
+	client := getS3Client(aws_access_key_id, aws_secret_access_key, s3_region)
 
 	key := filename
 	//fileName := filename
 
  fmt.Println("Uploading file - %s", filefullname)
 
-	uResp, err := uploadFileToS3(client, key, filefullname)
+	uResp, err := uploadFileToS3(client, key, filefullname,s3_bucket)
 	if err != nil {
 		log.Fatalf("failed to upload file - %v", err)
 fmt.Println("failed to upload file - %v", err)
@@ -291,7 +291,7 @@ fmt.Println("uploadS3 - END")
 
 // S3 FUNCTIONS --------------------
 
-func uploadFileToS3(s3Client *s3.S3, key string, filePath string) (string, error) {
+func uploadFileToS3(s3Client *s3.S3, key string, filePath string,s3_bucket string,) (string, error) {
 	
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -325,7 +325,7 @@ func uploadFileToS3(s3Client *s3.S3, key string, filePath string) (string, error
 	return awsutil.StringValue(resp), nil
 }
 
-func getS3Client() *s3.S3 {
+func getS3Client(aws_access_key_id string, aws_secret_access_key string, s3_region string) *s3.S3 {
 	token := ""
 	creds := credentials.NewStaticCredentials(aws_access_key_id, aws_secret_access_key, token)
 	_, err := creds.Get()
