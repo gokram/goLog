@@ -20,6 +20,9 @@ import (
 
 "github.com/tidwall/gjson"
 "strconv"
+	"os/signal"
+	"syscall"
+	"context"
 
 )
 
@@ -86,10 +89,23 @@ handler:= NewSyslog(BUFFER_RAW)
 //go dummy_HTTPListener(channel_raw)
 //fmt.Println("main -> HTTP step")
 
-go buildBatch(handler.messages, channel_filename, FILENAME_PREFIX, WORKING_PATH, TIMEOUT_SEC)
+
+//SIGNAL
+ctx, cancel := context.WithCancel(context.Background())
+sigs := make(chan os.Signal, 1)
+signal.Notify(sigs, syscall.SIGTERM)
+go func() {
+	<-sigs
+	cancel()
+	log.Printf("XXX Signal Received -- graceful shutdown -- S3 upload immediatly --- MAIN")	
+
+}()
+
+go buildBatch(handler.messages, channel_filename, FILENAME_PREFIX, WORKING_PATH, TIMEOUT_SEC, ctx)
 fmt.Println("main -> buildBatch step")
 
 go uploadS3(channel_filename, s3_bucket, aws_access_key_id, aws_secret_access_key, s3_region, WORKING_PATH, S3_PREFIX)
+
 
 http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), handler)
 //http.ListenAndServe(":9000", handler)
@@ -174,10 +190,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // FUNCTION -----------------------------------
 
-func buildBatch(channel_raw chan string, channel_filename chan string, FILENAME_PREFIX string, WORKING_PATH string, TIMEOUT_SEC int64) {
+func buildBatch(channel_raw chan string, channel_filename chan string, FILENAME_PREFIX string, WORKING_PATH string, TIMEOUT_SEC int64, ctx context.Context) {
 
 
 fmt.Println("buildBatch -> START")
+
+// GRACEFUL S3 upload
+
+
 
 // FOR START
 for {
@@ -223,9 +243,13 @@ for {
 // LOOP FOR SOME SECONDS
 
 loop:
-    for timeout := time.After(time.Second * time.Duration(TIMEOUT_SEC)); ; {
-        select {
+   for timeout := time.After(time.Second * time.Duration(TIMEOUT_SEC)); ; {
+       select {
         case <-timeout:
+		break loop
+        case <-ctx.Done():
+		fmt.Println("XXX Signal Received -- graceful shutdown -- S3 upload immediatly ---  UpdateBatch")
+		log.Printf("XXX Signal Received -- graceful shutdown -- S3 upload immediatly ---  UpdateBatch")
 		break loop
         default:
 
