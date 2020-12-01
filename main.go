@@ -24,17 +24,6 @@ import (
 )
 
 
-// updated with object store service key
-//const (
-//        WORKING_PATH = "C:/tmp/path_working/"
-//WORKING_PATH = "./path_working/"
-//BUFFER_RAW = 100
-//TIMEOUT_SEC = 900
-//FILENAME_PREFIX = "scp_log_and_metrics_"
-
-//S3_PREFIX = "/goLog/"
-//)
-
 
 
 func main() {
@@ -45,7 +34,12 @@ vcap_services := os.Getenv("VCAP_SERVICES")
 		fmt.Printf("No VCAP_SERVICES")
 		os.Exit(1)
 	}
-	
+
+vcap_application := os.Getenv("VCAP_APPLICATION")
+	if vcap_services == "" {
+		fmt.Printf("No VCAP_APPLICATION")
+		os.Exit(1)
+	}
 
 //TODO ERROR MNGMTN
 
@@ -61,7 +55,7 @@ fmt.Println("INSTANCE_NAME :", INSTANCE_NAME)
 
 //READ ENV VARIABLE from manifest.yml
 var WORKING_PATH = os.Getenv("TMPDIR") + "/"
-fmt.Println("Variable MMMM WORKING_PATH :", WORKING_PATH)
+fmt.Println("Variable WORKING_PATH :", WORKING_PATH)
 
 BUFFER_RAW, err := strconv.ParseInt(os.Getenv("BUFFER_RAW"), 0, 64)
 if err != nil {
@@ -76,11 +70,12 @@ if err != nil {
 fmt.Println(TIMEOUT_SEC)
 var INDEX = os.Getenv("CF_INSTANCE_INDEX")
 
+//var FILENAME_PREFIX = os.Getenv("FILENAME_PREFIX") + "INDX_" + INDEX + "_"
+var FILENAME_PREFIX = gjson.Get(vcap_application, "application_name").String() + "_" + os.Getenv("FILENAME_PREFIX") + "_INDX_" + INDEX + "_"
 
-var FILENAME_PREFIX = os.Getenv("FILENAME_PREFIX") + "INDX_" + INDEX + "_"
-
-var S3_PREFIX = os.Getenv("S3_PREFIX")
-
+//var S3_PREFIX = os.Getenv("S3_PREFIX")
+var S3_PREFIX = gjson.Get(vcap_application, "organization_name").String() + "/" + gjson.Get(vcap_application, "space_name").String()
+fmt.Println("Variable S3_PREFIX :", S3_PREFIX)
 
 channel_filename := make(chan string,BUFFER_RAW)
 
@@ -295,7 +290,7 @@ fmt.Println("uploadS3 - START")
 fmt.Println("failed to upload file - %v", err)
 
 	}
-	log.Printf("uploaded file with response %s", uResp)
+	//log.Printf("uploaded file with response %s", uResp)
 fmt.Println("uploaded file with response %s", uResp)
 
     // Removing file from the directory 

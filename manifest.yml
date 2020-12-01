@@ -7,9 +7,8 @@ applications:
   instances: 2
   env:
     BUFFER_RAW : 100
-    TIMEOUT_SEC : 900
-    FILENAME_PREFIX : "scp_log_and_metrics_"
-    S3_PREFIX : "/goLog-v1/"
+    TIMEOUT_SEC : 180
+    FILENAME_PREFIX : "scp_log_and_metrics"
   services:
    - bucket_test_scp_syslog_drain
 
