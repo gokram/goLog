@@ -1,3 +1,3 @@
-module github.com/gokram/goLog.git
+module main
 
 go 1.15

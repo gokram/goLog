@@ -1,0 +1,16 @@
+---
+version: 1
+applications:
+- name: goLog-v1
+  memory: 1024M
+  disk_quota: 1024M
+  instances: 2
+  env:
+    WORKING_PATH : "./path_working/"
+    BUFFER_RAW : 100
+    TIMEOUT_SEC : 900
+    FILENAME_PREFIX : "scp_log_and_metrics_"
+    S3_PREFIX : "/goLog-v1/"
+  services:
+   - bucket_test_scp_syslog_drain
+

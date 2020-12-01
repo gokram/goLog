@@ -19,20 +19,21 @@ import (
 //	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
 "github.com/tidwall/gjson"
+"strconv"
 
 )
 
 
 // updated with object store service key
-const (
+//const (
 //        WORKING_PATH = "C:/tmp/path_working/"
-WORKING_PATH = "./path_working/"
-BUFFER_RAW = 100
-TIMEOUT_SEC = 900
-FILENAME_PREFIX = "scp_log_and_metrics_"
+//WORKING_PATH = "./path_working/"
+//BUFFER_RAW = 100
+//TIMEOUT_SEC = 900
+//FILENAME_PREFIX = "scp_log_and_metrics_"
 
-S3_PREFIX = "/goLog/"
-)
+//S3_PREFIX = "/goLog/"
+//)
 
 
 
@@ -58,19 +59,42 @@ aws_secret_access_key := gjson.Get(vcap_services, "objectstore.0.credentials.sec
 fmt.Println("OBJECTSTORE :", OBJECTSTORE)
 fmt.Println("INSTANCE_NAME :", INSTANCE_NAME)
 
+//READ ENV VARIABLE from manifest.yml
+var WORKING_PATH = os.Getenv("WORKING_PATH")
+fmt.Println("Variable MMMM WORKING_PATH :", WORKING_PATH)
+
+BUFFER_RAW, err := strconv.ParseInt(os.Getenv("BUFFER_RAW"), 0, 64)
+if err != nil {
+    panic(err)
+}
+fmt.Println(BUFFER_RAW)
+
+TIMEOUT_SEC, err := strconv.ParseInt(os.Getenv("TIMEOUT_SEC"), 0, 64)
+if err != nil {
+    panic(err)
+}
+fmt.Println(TIMEOUT_SEC)
+var INDEX = os.Getenv("CF_INSTANCE_INDEX")
+
+
+var FILENAME_PREFIX = os.Getenv("FILENAME_PREFIX") + "INDX_" + INDEX + "_"
+
+var S3_PREFIX = os.Getenv("S3_PREFIX")
+
+
 channel_filename := make(chan string,BUFFER_RAW)
 
 fmt.Println("main -> START")
 
-handler:= NewSyslog()
+handler:= NewSyslog(BUFFER_RAW)
 
 //go dummy_HTTPListener(channel_raw)
 //fmt.Println("main -> HTTP step")
 
-go buildBatch(handler.messages, channel_filename)
+go buildBatch(handler.messages, channel_filename, FILENAME_PREFIX, WORKING_PATH, TIMEOUT_SEC)
 fmt.Println("main -> buildBatch step")
 
-go uploadS3(channel_filename, s3_bucket, aws_access_key_id, aws_secret_access_key, s3_region)
+go uploadS3(channel_filename, s3_bucket, aws_access_key_id, aws_secret_access_key, s3_region, WORKING_PATH, S3_PREFIX)
 
 http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), handler)
 //http.ListenAndServe(":9000", handler)
@@ -87,7 +111,7 @@ type Handler struct {
 	
 }
 
-func NewSyslog() *Handler {
+func NewSyslog(BUFFER_RAW int64) *Handler {
 	return &Handler{
 		messages: make(chan string,BUFFER_RAW),
 	}
@@ -155,7 +179,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // FUNCTION -----------------------------------
 
-func buildBatch(channel_raw chan string, channel_filename chan string) {
+func buildBatch(channel_raw chan string, channel_filename chan string, FILENAME_PREFIX string, WORKING_PATH string, TIMEOUT_SEC int64) {
 
 
 fmt.Println("buildBatch -> START")
@@ -204,7 +228,7 @@ for {
 // LOOP FOR SOME SECONDS
 
 loop:
-    for timeout := time.After(time.Second * TIMEOUT_SEC); ; {
+    for timeout := time.After(time.Second * time.Duration(TIMEOUT_SEC)); ; {
         select {
         case <-timeout:
 		break loop
@@ -247,7 +271,7 @@ channel_filename <- filename
 
 // FUNCTION -----------------------------------
 
-func uploadS3(channel_filename chan string, s3_bucket string, aws_access_key_id string, aws_secret_access_key string, s3_region string) {
+func uploadS3(channel_filename chan string, s3_bucket string, aws_access_key_id string, aws_secret_access_key string, s3_region string, WORKING_PATH string, S3_PREFIX string) {
 for
   {
 
@@ -265,7 +289,7 @@ fmt.Println("uploadS3 - START")
 
  fmt.Println("Uploading file - %s", filefullname)
 
-	uResp, err := uploadFileToS3(client, key, filefullname,s3_bucket)
+	uResp, err := uploadFileToS3(client, key, filefullname,s3_bucket, S3_PREFIX)
 	if err != nil {
 		log.Fatalf("failed to upload file - %v", err)
 fmt.Println("failed to upload file - %v", err)
@@ -291,7 +315,7 @@ fmt.Println("uploadS3 - END")
 
 // S3 FUNCTIONS --------------------
 
-func uploadFileToS3(s3Client *s3.S3, key string, filePath string,s3_bucket string,) (string, error) {
+func uploadFileToS3(s3Client *s3.S3, key string, filePath string,s3_bucket string, S3_PREFIX string) (string, error) {
 	
 	file, err := os.Open(filePath)
 	if err != nil {
