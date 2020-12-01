@@ -74,7 +74,7 @@ var INDEX = os.Getenv("CF_INSTANCE_INDEX")
 var FILENAME_PREFIX = gjson.Get(vcap_application, "application_name").String() + "_" + os.Getenv("FILENAME_PREFIX") + "_INDX_" + INDEX + "_"
 
 //var S3_PREFIX = os.Getenv("S3_PREFIX")
-var S3_PREFIX = gjson.Get(vcap_application, "organization_name").String() + "/" + gjson.Get(vcap_application, "space_name").String()
+var S3_PREFIX = gjson.Get(vcap_application, "organization_name").String() + "/" + gjson.Get(vcap_application, "space_name").String() + "/"
 fmt.Println("Variable S3_PREFIX :", S3_PREFIX)
 
 channel_filename := make(chan string,BUFFER_RAW)
