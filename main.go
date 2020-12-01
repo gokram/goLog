@@ -60,7 +60,7 @@ fmt.Println("OBJECTSTORE :", OBJECTSTORE)
 fmt.Println("INSTANCE_NAME :", INSTANCE_NAME)
 
 //READ ENV VARIABLE from manifest.yml
-var WORKING_PATH = os.Getenv("WORKING_PATH")
+var WORKING_PATH = os.Getenv("TMPDIR")
 fmt.Println("Variable MMMM WORKING_PATH :", WORKING_PATH)
 
 BUFFER_RAW, err := strconv.ParseInt(os.Getenv("BUFFER_RAW"), 0, 64)
