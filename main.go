@@ -22,7 +22,7 @@ import (
 "strconv"
 	"os/signal"
 	"syscall"
-	"context"
+//	"context"
 
 )
 
@@ -91,27 +91,34 @@ handler:= NewSyslog(BUFFER_RAW)
 
 
 //SIGNAL
-ctx, cancel := context.WithCancel(context.Background())
+//ctx, cancel := context.WithCancel(context.Background())
 sigs := make(chan os.Signal, 1)
 signal.Notify(sigs, syscall.SIGTERM)
+gracefulshutdown := make(chan bool,1)
 go func() {
 	<-sigs
-	cancel()
-	log.Printf("XXX Signal Received -- graceful shutdown -- S3 upload immediatly --- MAIN")	
+	//cancel()
+	gracefulshutdown <- true
+	fmt.Println("MAIN - XXX Signal Received -- graceful shutdown -- S3 upload immediatly --- MAIN")	
+	handler.messages <- "goLog - XXX Signal Received -- graceful shutdown -- S3 upload immediatly --- MAIN" 
+	for { 
+	time.Sleep(1 * time.Second) 
+	fmt.Println("MAIN - XXX Signal Received -- Waiting on instance %d", INDEX)	
+	}
 
 }()
 
-go buildBatch(handler.messages, channel_filename, FILENAME_PREFIX, WORKING_PATH, TIMEOUT_SEC, ctx)
-fmt.Println("main -> buildBatch step")
+go buildBatch(handler.messages, channel_filename, FILENAME_PREFIX, WORKING_PATH, TIMEOUT_SEC, gracefulshutdown)
+fmt.Println("MAIN - main -> buildBatch step")
 
 go uploadS3(channel_filename, s3_bucket, aws_access_key_id, aws_secret_access_key, s3_region, WORKING_PATH, S3_PREFIX)
 
 
 http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), handler)
 //http.ListenAndServe(":9000", handler)
-fmt.Println("main -> HTTP step")
+fmt.Println("MAIN - main -> HTTP step")
 
-fmt.Println("main -> END")
+fmt.Println("MAIN - main -> END")
 
 //time.Sleep(60* time.Second)
 }
@@ -149,13 +156,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		log.Printf("Failed to read body: %s", err)
+		log.Printf("ServeHTTP - Failed to read body: %s", err)
 		return
 	}
 
 	if len(body) < 1 {
 		w.WriteHeader(http.StatusBadRequest)
-		log.Print("Empty body")
+		log.Print("ServeHTTP - Empty body")
 		return
 	}
 
@@ -190,7 +197,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // FUNCTION -----------------------------------
 
-func buildBatch(channel_raw chan string, channel_filename chan string, FILENAME_PREFIX string, WORKING_PATH string, TIMEOUT_SEC int64, ctx context.Context) {
+func buildBatch(channel_raw chan string, channel_filename chan string, FILENAME_PREFIX string, WORKING_PATH string, TIMEOUT_SEC int64, gracefulshutdown chan bool) {
 
 
 fmt.Println("buildBatch -> START")
@@ -204,12 +211,12 @@ for {
 
 	// CREATE FILE ----------------------
 
-	fmt.Println("buildBatch -> FOR ")
+	fmt.Println("BUILDBATCH - buildBatch -> FOR ")
 
 	now := time.Now()
 	currentTime := now.Format("20060102150405")
 
-	fmt.Println("Current Time in String: %s", currentTime)
+	fmt.Println("BUILDBATCH - Current Time in String: %s", currentTime)
 
 	filename := FILENAME_PREFIX + currentTime + ".txt"
 
@@ -230,26 +237,27 @@ for {
         	fmt.Println(cerr)
         	return
     		} else {
-	        fmt.Println("file closed: %s",filefullname)
+	        fmt.Println("BUILDBATCH - file closed: %s",filefullname)
         	}
 
 	} else {
-        fmt.Println("File already exists!", filefullname)
+        fmt.Println("BUILDBATCH - File already exists!", filefullname)
         return
 	    }
 
-    fmt.Println("File created successfully", filefullname)
+    fmt.Println("BUILDBATCH - File created successfully", filefullname)
 	
 // LOOP FOR SOME SECONDS
 
 loop:
-   for timeout := time.After(time.Second * time.Duration(TIMEOUT_SEC)); ; {
-       select {
+for timeout := time.After(time.Second * time.Duration(TIMEOUT_SEC)); ; {
+
+     select {
         case <-timeout:
+		fmt.Println("BUILDBATCH - Timeout triggered in loop-select UpdateBatch")
 		break loop
-        case <-ctx.Done():
-		fmt.Println("XXX Signal Received -- graceful shutdown -- S3 upload immediatly ---  UpdateBatch")
-		log.Printf("XXX Signal Received -- graceful shutdown -- S3 upload immediatly ---  UpdateBatch")
+        case <-gracefulshutdown:
+		fmt.Println("BUILDBATCH - XXX Signal Received -- graceful shutdown -- S3 upload immediatly ---  UpdateBatch")
 		break loop
         default:
 
@@ -264,25 +272,28 @@ loop:
 
 	message := <-channel_raw
    	fmt.Fprintf(file, "%s\n", message )
-fmt.Println("File updated")
+	fmt.Println("BUILDBATCH - File updated")
 
 	cerr:= file.Close()
 	    if cerr != nil {
         	fmt.Println(cerr)
 	        return
     		} else {
-	        fmt.Println("file closed: %s",filefullname)
+	        fmt.Println("BUILDBATCH - file closed: %s",filefullname)
         	
 	    	}
 
 
         } //end select  
 
-    } //end for loop
+fmt.Println("BUILDBATCH - Exited SELECT")
 
+    } //end fortimeout/loop
 
+fmt.Println("BUILDBATCH - Exited FOR LOOP")
 
 channel_filename <- filename
+
 } // END FOR
 
 } //end funct
