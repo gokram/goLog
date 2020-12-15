@@ -7,7 +7,7 @@ applications:
   instances: 2
   env:
     BUFFER_RAW : 100
-    TIMEOUT_SEC : 180
+    TIMEOUT_SEC : 900
     FILENAME_PREFIX : "scp_log_and_metrics"
   services:
    - bucket_test_scp_syslog_drain
