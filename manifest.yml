@@ -1,13 +1,13 @@
 ---
 version: 1
 applications:
-- name: goLog-v1
+- name: goLog-v3
   memory: 1024M
   disk_quota: 1024M
-  instances: 2
+  instances: 1
   env:
     BUFFER_RAW : 100
-    TIMEOUT_SEC : 180
+    TIMEOUT_SEC : 900
     FILENAME_PREFIX : "scp_log_and_metrics"
   services:
    - bucket_test_scp_syslog_drain

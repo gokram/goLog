@@ -19,13 +19,13 @@ import (
 //	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
 "github.com/tidwall/gjson"
+"encoding/json"
 "strconv"
 	"os/signal"
 	"syscall"
 //	"context"
 
 )
-
 
 
 
@@ -43,6 +43,55 @@ vcap_application := os.Getenv("VCAP_APPLICATION")
 		fmt.Printf("No VCAP_APPLICATION")
 		os.Exit(1)
 	}
+
+fmt.Println("TEST NEW JSON :  -> vcap_services:", vcap_services)
+
+//TEST NEW JSON
+
+
+var objectstore_data map[string]interface{}
+
+
+err := json.Unmarshal([]byte(vcap_services), &objectstore_data)
+
+	if err != nil {
+		log.Printf("Failed to unmarshal (via JSON) message (%s): %s", string(vcap_services), err)
+		return
+	}
+
+objstore := objectstore_data["objectstore"].([]interface{})[0].(map[string]interface{})
+objstore_name := objstore["name"].(string)
+objectstore_instance_name := objstore["instance_name"].(string)
+
+    cred := objectstore_data["objectstore"].([]interface{})[0].(map[string]interface{})["credentials"].(map[string]interface{})
+    objectstore_creds_region:= cred["region"].(string)
+objectstore_creds_bucket:= cred["bucket"].(string)
+objectstore_creds_access_key_id := cred["access_key_id"].(string)
+objectstore_creds_secret_key := cred["secret_access_key"].(string)
+
+//fmt.Println("TEST NEW JSON :  -> region:", region)
+
+/*
+type vcap_services_struct struct  {
+	objstore_name 			string `json:"objectstore.0.name"`	
+	objectstore_instance_name	string `json:"objectstore.0.instance_name"`
+	objectstore_creds_region	string `json:"objectstore.0.credentials.region"`
+	objectstore_creds_bucket	string `json:"objectstore.0.credentials.bucket"`
+	objectstore_creds_access_key_id	string `json:"objectstore.0.credentials.access_key_id"`
+	objectstore_creds_secret_key	string `json:"objectstore.0.credentials.secret_access_key"`
+	}
+*/
+
+
+
+fmt.Println("TEST NEW JSON :  -> objstore_name:", objstore_name)
+fmt.Println("TEST NEW JSON :  -> objectstore_instance_name:", objectstore_instance_name)
+fmt.Println("TEST NEW JSON :  -> objectstore_creds_region:", objectstore_creds_region)
+fmt.Println("TEST NEW JSON :  -> objectstore_creds_bucket:", objectstore_creds_bucket)
+fmt.Println("TEST NEW JSON :  -> objectstore_creds_access_key_id:", objectstore_creds_access_key_id)
+fmt.Println("TEST NEW JSON :  -> objectstore_creds_secret_key:", objectstore_creds_secret_key)
+
+
 
 //TODO ERROR MNGMTN
 
