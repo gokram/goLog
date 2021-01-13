@@ -1,29 +1,27 @@
 package main
 
 import (
-    "fmt"
-    "os"
-    "time"
-
+    	"fmt"
+    	"os"
+	"time"
 	"bytes"
 	"log"
 	"net/http"
 	"io/ioutil"
-//	"code.cloudfoundry.org/rfc5424"
+	"encoding/json"
+	"strconv"
+	"os/signal"
+	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-//	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
-"github.com/tidwall/gjson"
-"encoding/json"
-"strconv"
-	"os/signal"
-	"syscall"
-//	"context"
+// NOT USED:
+//	"code.cloudfoundry.org/rfc5424"
+//	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
 )
 
@@ -60,47 +58,15 @@ err := json.Unmarshal([]byte(vcap_services), &objectstore_data)
 	}
 
 objstore := objectstore_data["objectstore"].([]interface{})[0].(map[string]interface{})
-objstore_name := objstore["name"].(string)
-objectstore_instance_name := objstore["instance_name"].(string)
+OBJECTSTORE := objstore["name"].(string)
+INSTANCE_NAME := objstore["instance_name"].(string)
 
     cred := objectstore_data["objectstore"].([]interface{})[0].(map[string]interface{})["credentials"].(map[string]interface{})
-    objectstore_creds_region:= cred["region"].(string)
-objectstore_creds_bucket:= cred["bucket"].(string)
-objectstore_creds_access_key_id := cred["access_key_id"].(string)
-objectstore_creds_secret_key := cred["secret_access_key"].(string)
+    s3_region:= cred["region"].(string)
+s3_bucket:= cred["bucket"].(string)
+aws_access_key_id := cred["access_key_id"].(string)
+aws_secret_access_key := cred["secret_access_key"].(string)
 
-//fmt.Println("TEST NEW JSON :  -> region:", region)
-
-/*
-type vcap_services_struct struct  {
-	objstore_name 			string `json:"objectstore.0.name"`	
-	objectstore_instance_name	string `json:"objectstore.0.instance_name"`
-	objectstore_creds_region	string `json:"objectstore.0.credentials.region"`
-	objectstore_creds_bucket	string `json:"objectstore.0.credentials.bucket"`
-	objectstore_creds_access_key_id	string `json:"objectstore.0.credentials.access_key_id"`
-	objectstore_creds_secret_key	string `json:"objectstore.0.credentials.secret_access_key"`
-	}
-*/
-
-
-
-fmt.Println("TEST NEW JSON :  -> objstore_name:", objstore_name)
-fmt.Println("TEST NEW JSON :  -> objectstore_instance_name:", objectstore_instance_name)
-fmt.Println("TEST NEW JSON :  -> objectstore_creds_region:", objectstore_creds_region)
-fmt.Println("TEST NEW JSON :  -> objectstore_creds_bucket:", objectstore_creds_bucket)
-fmt.Println("TEST NEW JSON :  -> objectstore_creds_access_key_id:", objectstore_creds_access_key_id)
-fmt.Println("TEST NEW JSON :  -> objectstore_creds_secret_key:", objectstore_creds_secret_key)
-
-
-
-//TODO ERROR MNGMTN
-
-OBJECTSTORE :=  gjson.Get(vcap_services, "objectstore.0.name").String()
-INSTANCE_NAME :=  gjson.Get(vcap_services, "objectstore.0.instance_name").String()
-s3_region :=  gjson.Get(vcap_services, "objectstore.0.credentials.region").String()
-s3_bucket :=  gjson.Get(vcap_services, "objectstore.0.credentials.bucket").String()
-aws_access_key_id :=  gjson.Get(vcap_services, "objectstore.0.credentials.access_key_id").String()
-aws_secret_access_key := gjson.Get(vcap_services, "objectstore.0.credentials.secret_access_key").String()
 
 fmt.Println("OBJECTSTORE :", OBJECTSTORE)
 fmt.Println("INSTANCE_NAME :", INSTANCE_NAME)
@@ -122,11 +88,29 @@ if err != nil {
 fmt.Println(TIMEOUT_SEC)
 var INDEX = os.Getenv("CF_INSTANCE_INDEX")
 
+
+var application_data map[string]interface{}
+
+
+err_2 := json.Unmarshal([]byte(vcap_application), &application_data)
+
+	if err_2 != nil {
+		log.Printf("Failed to unmarshal (via JSON) message (%s): %s", string(vcap_application), err_2)
+		return
+	}
+
+application_name := application_data["application_name"].(string)
+organization_name := application_data["organization_name"].(string)
+space_name := application_data["space_name"].(string)
+fmt.Println("TEST NEW JSON :  -> application_name:", application_name)
+fmt.Println("TEST NEW JSON :  -> organization_name:", organization_name)
+fmt.Println("TEST NEW JSON :  -> space_name:", space_name)
+
 //var FILENAME_PREFIX = os.Getenv("FILENAME_PREFIX") + "INDX_" + INDEX + "_"
-var FILENAME_PREFIX = gjson.Get(vcap_application, "application_name").String() + "_" + os.Getenv("FILENAME_PREFIX") + "_INDX_" + INDEX + "_"
+var FILENAME_PREFIX = application_name + "_" + os.Getenv("FILENAME_PREFIX") + "_INDX_" + INDEX + "_"
 
 //var S3_PREFIX = os.Getenv("S3_PREFIX")
-var S3_PREFIX = gjson.Get(vcap_application, "organization_name").String() + "/" + gjson.Get(vcap_application, "space_name").String() + "/"
+var S3_PREFIX = organization_name + "/" + space_name + "/"
 fmt.Println("Variable S3_PREFIX :", S3_PREFIX)
 
 channel_filename := make(chan string,BUFFER_RAW)
@@ -140,7 +124,6 @@ handler:= NewSyslog(BUFFER_RAW)
 
 
 //SIGNAL
-//ctx, cancel := context.WithCancel(context.Background())
 sigs := make(chan os.Signal, 1)
 signal.Notify(sigs, syscall.SIGTERM)
 gracefulshutdown := make(chan bool,1)
@@ -185,19 +168,6 @@ func NewSyslog(BUFFER_RAW int64) *Handler {
 }
 
 // FUNCTION -----------------------------------
-
-func dummy_HTTPListener(channel_raw chan string) {
-	
- fmt.Println("dummy_HTTPListener -> START")
-for
-	{
-	
-	channel_raw <- "pippo"
-
- fmt.Println("dummy_HTTPListener -> emit")
-
-	} //end for
-} //end funct
 
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -250,9 +220,6 @@ func buildBatch(channel_raw chan string, channel_filename chan string, FILENAME_
 
 
 fmt.Println("buildBatch -> START")
-
-// GRACEFUL S3 upload
-
 
 
 // FOR START

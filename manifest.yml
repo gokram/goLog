@@ -4,7 +4,7 @@ applications:
 - name: goLog-v3
   memory: 1024M
   disk_quota: 1024M
-  instances: 1
+  instances: 3
   env:
     BUFFER_RAW : 100
     TIMEOUT_SEC : 900
